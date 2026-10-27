@@ -1,0 +1,16 @@
+[project]
+name = "age-estimation"
+version = "1.0.0"
+description = "Age estimation from face images with a fine-tuned EfficientNet-B0 (UTKFace)"
+requires-python = ">=3.10"
+authors = [{ name = "Mohamed Jarboui" }]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

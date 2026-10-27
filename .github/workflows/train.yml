@@ -1,0 +1,77 @@
+name: Train and evaluate
+
+# Manual run: Actions > Train and evaluate > Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: Maximum training epochs
+        default: "10"
+      size:
+        description: Input image size (pixels)
+        default: "128"
+
+permissions:
+  contents: write   # push the results branch and create the model release
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies (CPU)
+        run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Cache dataset
+        uses: actions/cache@v4
+        with:
+          path: data/UTKFace.tar.gz
+          key: utkface-e80f21fb
+
+      - name: Train
+        run: python -m age_estimation.train --epochs ${{ inputs.epochs }} --size ${{ inputs.size }}
+
+      - name: Evaluate on the test split
+        run: python -m age_estimation.evaluate
+
+      - name: Publish metrics
+        run: |
+          echo "::notice title=metrics::$(python -c 'import json;print(json.dumps(json.load(open("results/metrics.json"))))')"
+          echo "::notice title=history::$(python -c 'import json;print(json.dumps(json.load(open("results/history.json"))))')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: training-results
+          path: results/
+
+      - name: Publish the trained model as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete model-v1 --yes --cleanup-tag 2>/dev/null || true
+          gh release create model-v1 results/model.pt results/train_config.json results/metrics.json \
+            --target ${{ github.sha }} --title "Trained model v1" \
+            --notes "EfficientNet-B0 fine-tuned on UTKFace. See metrics.json for the test results."
+
+      - name: Push results to the 'results' branch
+        run: |
+          mkdir -p /tmp/out && cp -r results/* /tmp/out/ && rm -f /tmp/out/model.pt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan results
+          git rm -rq --cached .
+          git clean -fdxq -e data
+          cp -r /tmp/out/* .
+          git add -A -- . ':!data'
+          git commit -qm "Training results (run ${{ github.run_id }})"
+          git push -f origin results
