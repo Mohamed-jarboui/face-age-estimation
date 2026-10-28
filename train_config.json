@@ -1,0 +1,17 @@
+{
+  "data_dir": "data",
+  "out_dir": "results",
+  "size": 128,
+  "epochs": 10,
+  "freeze_epochs": 1,
+  "batch_size": 64,
+  "lr": 0.001,
+  "patience": 3,
+  "seed": 42,
+  "limit": 0,
+  "no_pretrained": false,
+  "best_val_mae": 5.153812408447266,
+  "n_train": 16593,
+  "n_val": 3556,
+  "n_test": 3556
+}
