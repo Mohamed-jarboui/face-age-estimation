@@ -8,7 +8,33 @@ Predicts a person's age from a face image. An ImageNet-pretrained **EfficientNet
 
 ## Results
 
-_Training is running on GitHub Actions; the test results will be added here._
+Held-out test set of **3,556 faces**, never used for training or model selection. Trained for 10 epochs (about an hour on a standard CPU-only GitHub Actions runner).
+
+| | EfficientNet-B0 (this model) | Baseline: always predict the median age |
+|---|---|---|
+| **Mean absolute error** | **5.13 years** | 14.96 years |
+| RMSE | 7.49 years | 20.28 years |
+| Median absolute error | 3.51 years | 10.0 years |
+| R² | 0.857 | −0.05 |
+| Predictions within 5 years | 62.8 % | 34.6 % |
+| Predictions within 10 years | 84.9 % | 50.6 % |
+
+<p>
+  <img src="results/figures/predicted_vs_true.png" width="44%" alt="Predicted vs true age">
+  <img src="results/figures/mae_by_age_group.png" width="54%" alt="MAE by age group">
+</p>
+
+**Where the model struggles**
+
+- **Older faces.** The error grows from 2.3 years for children (0 to 12) and 3.3 years for people in their twenties to 7.7 to 7.8 years between 40 and 69 and 9.7 years above 70. Older people are much rarer in UTKFace, so the model sees fewer examples of them.
+- **Gender.** Similar error for women (4.95 years) and men (5.32 years); the test set is balanced (1,778 each).
+- **Ethnicity.** MAE ranges from 3.5 years ("Others") and 3.9 years (Asian) to 5.6 years (White) and 5.9 years (Black). Most of this gap follows the age mix: the Asian and "Others" test groups are much younger on average (26 and 22 years, with many children), which makes them easier. Black faces have the highest error despite a middle-of-the-range average age (34), so age alone does not explain it; this is the first gap worth investigating.
+
+<img src="results/figures/training_curve.png" width="70%" alt="Training curve">
+
+After epoch 7, validation error improves very little (5.24 to 5.15 years) while training error keeps falling, so longer training at this resolution would bring small gains. Higher input resolution (this run uses 128×128 to keep CPU training under an hour) or a larger backbone are the more promising next steps.
+
+Full numbers: [`results/metrics.json`](results/metrics.json) · per-image predictions: [`results/test_predictions.csv`](results/test_predictions.csv) · trained weights: [release `model-v1`](https://github.com/Mohamed-jarboui/face-age-estimation/releases/tag/model-v1).
 
 ## Approach
 
@@ -50,12 +76,12 @@ python -m age_estimation.evaluate     # test metrics and figures in results/
 python -m age_estimation.predict my_photo.jpg
 ```
 
-The trained weights are published as a [release](https://github.com/Mohamed-jarboui/face-age-estimation/releases); put `model.pt` in `results/` to use `predict` without training. To retrain on GitHub's servers instead: **Actions → Train and evaluate → Run workflow**.
+The trained weights (17 MB) are published as a [release](https://github.com/Mohamed-jarboui/face-age-estimation/releases/tag/model-v1); download `model.pt` and `train_config.json` into `results/` to use `predict` without training. To retrain on GitHub's servers instead: **Actions → Train and evaluate → Run workflow**.
 
 ## Data and responsible use
 
 - **Dataset:** [UTKFace](https://susanqq.github.io/UTKFace/) (Zhang, Song and Qi, CVPR 2017), downloaded from a [Hugging Face mirror](https://huggingface.co/datasets/py97/UTKFace-Cropped). It is released for non-commercial research. Face images are not stored in this repository.
-- **Bias:** UTKFace is unbalanced: most images are of people aged 20 to 40, and some ethnic groups are under-represented. The per-group errors above show how this affects accuracy.
+- **Bias:** UTKFace is unbalanced: most images are of people aged 20 to 40, and some ethnic groups are under-represented. The per-group errors in the results above show how this affects accuracy.
 - Apparent age from a photo is an estimate, not a fact about a person. This model is a learning project and should not be used for decisions about individuals.
 
 ## Author
